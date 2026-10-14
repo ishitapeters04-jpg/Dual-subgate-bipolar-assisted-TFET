@@ -1,0 +1,87 @@
+go atlas
+
+# ---------------- MESH ----------------
+mesh width=1
+
+x.mesh loc=0.0  spac=0.5
+x.mesh loc=4.5  spac=0.2
+x.mesh loc=5.0  spac=0.05
+x.mesh loc=8.0  spac=0.05
+x.mesh loc=10.0 spac=0.3
+x.mesh loc=12.0 spac=0.05
+x.mesh loc=15.0 spac=0.05
+x.mesh loc=15.5 spac=0.2
+x.mesh loc=20.0 spac=0.5
+
+y.mesh loc=0.0    spac=0.01
+y.mesh loc=0.03   spac=0.005
+y.mesh loc=0.0305 spac=0.001
+y.mesh loc=0.045  spac=0.002
+y.mesh loc=0.0506 spac=0.001
+y.mesh loc=0.1    spac=0.03
+y.mesh loc=0.3506 spac=0.1
+
+# ---------------- REGIONS ----------------
+region num=1 material=Air x.min=0  x.max=5  y.min=0 y.max=0.045
+region num=2 material=Air x.min=15 x.max=20 y.min=0 y.max=0.045
+region num=3 material=Al2O3 x.min=5 x.max=15 y.min=0 y.max=0.03
+region num=4 material=Al2O3 x.min=5 x.max=15 y.min=0.03 y.max=0.045
+region num=5 user.material=MoS2 user.group=semiconductor x.min=0 x.max=20 y.min=0.045 y.max=0.0506
+region num=6 material=SiO2 x.min=0 x.max=20 y.min=0.0506 y.max=0.3506
+region num=7 material=Aluminum x.min=8 x.max=12 y.min=0.03 y.max=0.0305
+
+# ---------------- ELECTRODES ----------------
+electrode name=source x.min=0  x.max=5  y.min=0.045 y.max=0.045
+electrode name=drain  x.min=15 x.max=20 y.min=0.045 y.max=0.045
+electrode name=gate   x.min=8  x.max=12 y.min=0.03  y.max=0.0305
+electrode name=sg     x.min=5  x.max=8  y.min=0     y.max=0
+electrode name=dg     x.min=12 x.max=15 y.min=0     y.max=0
+
+# ---------------- MATERIALS ----------------
+material material=MoS2 user.group=semiconductor user.default=Silicon \
+  eg300=1.3 affinity=4.2 permittivity=7.0 \
+  mun=30 mup=30 nc300=1.0e19 nv300=1.0e19 \
+  mc=0.45 mv=0.55 \
+   bb.a=4.0e19 bb.b=1.9e7 bb.gamma=2.5
+
+material material=Al2O3 permittivity=9.0
+
+# ---------------- DOPING ----------------
+# Light background in the channel
+doping uniform n.type conc=1e15 region=5
+# Heavy n+ under source and drain contacts (ohmic)
+
+contact name=gate workfunction=4.3
+contact name=sg   workfunction=4.3
+contact name=dg   workfunction=4.3
+contact name=source workfunction=4.3
+contact name=drain  workfunction=4.3
+interface qf=7e12 x.min=8 x.max=12 y.min=0.044 y.max=0.046
+# ---------------- MODELS ----------------
+models srh fermi bbt.std print
+method newton trap maxtraps=10 autonr
+output con.band val.band band.param e.field
+
+solve init
+
+# ---------------- RAMP SUBGATES & DRAIN ----------------
+solve name=sg   vfinal=-8 vstep=-0.5
+solve name=dg   vfinal=2  vstep=0.25
+solve name=drain vfinal=1 vstep=0.1
+
+save outf=dsga_vg0.str
+
+# --------------- GATE SWEEP (Id-Vg) ----------------
+log outf=dsga_idvg.log
+solve name=gate vfinal=10 vstep=0.05
+save outf=dsga_vg4.str
+
+# ---------------- PLOT ----------------
+# Raw log (set Y to Log10 in Plot > Display)
+tonyplot dsga_idvg.log
+
+# |Id| vs Vg, safe for a log axis
+extract init inf="dsga_idvg.log"
+extract name="idvg" curve(v."gate", abs(i."drain")) outfile="idvg.dat"
+tonyplot idvg.dat
+quit
